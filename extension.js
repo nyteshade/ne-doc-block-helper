@@ -7,13 +7,6 @@ const vscode = require('vscode');
 const commentFormats = require('./commentFormats');
 
 /**
- * Tracks the number of consecutive empty Enter presses to provide
- * smart behavior for closing doc blocks
- * @type {Object.<string, number>}
- */
-const emptyLineCounter = {};
-
-/**
  * Activate the extension
  * @param {vscode.ExtensionContext} context - The extension context
  */
@@ -26,30 +19,8 @@ function activate(context) {
     handleEnterKey
   );
 
-  // Create a Type key handler to reset the empty line counter
-  const typeDisposable = vscode.workspace.onDidChangeTextDocument(event => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) return;
-
-    // Reset the counter if the user types something (not just pressing Enter)
-    if (event.contentChanges.length > 0 &&
-        !event.contentChanges.every(change => change.text === '\n' || change.text === '\r\n')) {
-      const documentKey = editor.document.uri.toString();
-      emptyLineCounter[documentKey] = 0;
-    }
-  });
-
   // Add the key binding for Enter within doc blocks
-  context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument(doc => {
-      emptyLineCounter[doc.uri.toString()] = 0;
-    }),
-    vscode.workspace.onDidCloseTextDocument(doc => {
-      delete emptyLineCounter[doc.uri.toString()];
-    }),
-    disposable,
-    typeDisposable
-  );
+  context.subscriptions.push(disposable);
 }
 
 /**
@@ -62,99 +33,22 @@ async function handleEnterKey() {
   if (!editor)
     return vscode.commands.executeCommand('default:type', { text: '\n' });
 
-	const { document, selection } = editor,
-		position = selection.active,
-		documentKey = document.uri.toString();
+	const selection = editor.selection, position = selection.active;
 
   // Get enhanced context information
   const context = await getDocumentContext(position);
 
   // Get the language-specific comment format
   const format = commentFormats.getFormatForLanguage(context.languageId);
-  if (!format) {
-    // Language not supported, use default Enter behavior
+
+  if (!format)
     return vscode.commands.executeCommand('default:type', { text: '\n' });
-  }
 
   // Use the more accurate context detection
-  if (!context.isInDocBlock) {
-    // Not in a doc block, use default Enter behavior
+  if (!context.isInDocBlock)
     return vscode.commands.executeCommand('default:type', { text: '\n' });
-  }
-
-  // Get the current line
-  const line = document.lineAt(position.line);
-  const lineText = line.text;
-
-	const leadingLine = lineText.indexOf(format.blockStart)
-	const contentLine = lineText.indexOf(format.blockPrefix)
-	const trailingLine = lineText.indexOf(format.blockEnd)
-	const index =
-		~leadingLine ? leadingLine :
-		~contentLine ? contentLine :
-		~trailingLine ? trailingLine : -1;
-
-	if (format.multiLine) {
-		const endOfComment = trailingLine + format.blockEnd.length
-
-		if (~trailingLine && (position.character >= endOfComment)) {
-			return vscode.commands.executeCommand('default:type', { text: '\n' });
-		}
-	}
-
-	if (!~index) {
-		// Not in a doc block, use default Enter behavior
-		emptyLineCounter[documentKey] = 0;
-		return vscode.commands.executeCommand('default:type', { text: '\n' });
-	}
-
-	context.indentation = lineText.substring(0, index)
 
 	return continueDocBlock(editor, format, context.indentation);
-}
-
-/**
- * Determines if the current cursor position is within a doc block
- * @param {vscode.TextDocument} document - The current document
- * @param {vscode.Position} position - The cursor position
- * @param {object} format - The language's comment format
- * @returns {boolean} - True if the position is in a doc block
- */
-function isPositionInDocBlock(document, position, format) {
-  // Simple implementation: check if the current line has doc block formatting
-  const line = document.lineAt(position.line);
-  const lineText = line.text.trim();
-
-  // Check if this line is part of a doc block
-  if (commentFormats.isDocBlockLine(lineText, format)) {
-    return true;
-  }
-
-  // For multi-line formats, we need to check if we're inside a block
-  if (format.multiLine) {
-    // Look for a block start before this position
-    let startLine = position.line;
-    while (startLine >= 0) {
-      const currentLine = document.lineAt(startLine).text.trim();
-      if (commentFormats.isDocBlockStart(currentLine, format)) {
-        // Now look for an end after the start but before current position
-        let endLine = startLine + 1;
-        while (endLine < position.line) {
-          const endLineText = document.lineAt(endLine).text.trim();
-          if (commentFormats.isDocBlockEnd(endLineText, format)) {
-            return false; // We found an end before our position
-          }
-          endLine++;
-        }
-        return true; // Found a start with no end before us
-      } else if (commentFormats.isDocBlockEnd(currentLine, format)) {
-        return false; // Found an end before finding a start
-      }
-      startLine--;
-    }
-  }
-
-  return false;
 }
 
 /**
@@ -200,10 +94,6 @@ async function continueDocBlock(editor, format, indentation) {
  * Deactivate the extension
  */
 function deactivate() {
-  // Clean up resources
-  Object.keys(emptyLineCounter).forEach(key => {
-    delete emptyLineCounter[key];
-  });
 }
 
 /**
@@ -215,9 +105,8 @@ function deactivate() {
 async function getDocumentContext(positionOrLine, character) {
 	let position = positionOrLine;
 
-	if (isFinite(positionOrLine) && isFinite(character)) {
+	if (isFinite(positionOrLine) && isFinite(character))
 		position = new vscode.Position(positionOrLine, character)
-	}
 
   // Get document content information
 	const editor = vscode.window.activeTextEditor;
@@ -225,12 +114,12 @@ async function getDocumentContext(positionOrLine, character) {
 
   const line = document.lineAt(position.line);
   const lineText = line.text;
-  const indentation = lineText.match(/^\s*/)[0];
 
   // Try to determine if we're in a documentation block using token types
-  let isInDocBlock = false;
+  let isInDocBlock = true;
 	let docLineType = 'none';
 	let docLineBlock = null;
+  let indentation = lineText.match(/^\s*/)[0];
 
   try {
     // Get token information at cursor position (requires VSCode 1.52+)
@@ -274,17 +163,22 @@ async function getDocumentContext(positionOrLine, character) {
 			if (~iTrailing && (position.character >= endOfComment)) {
 				isInDocBlock = false
 			}
-		}
 
+      indentation = lineText.substring(0, index)
+			docLineBlock = new vscode.Selection(
+				new vscode.Position(position.line, index),
+				new vscode.Position(position.line, index + currentFormat.length),
+			)
+		}
 		else {
 			isInDocBlock = true
+      indentation = lineText.substring(0, index)
 			docLineBlock = new vscode.Selection(
 				new vscode.Position(position.line, index),
 				new vscode.Position(position.line, index + currentFormat.length),
 			)
 		}
   }
-
 
   // Try to determine what we're documenting (function, class, etc.)
   let documentationTarget = null;

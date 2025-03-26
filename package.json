@@ -2,7 +2,7 @@
   "name": "docBlockHelper",
   "displayName": "Doc Block Helper",
   "description": "Smart formatting for documentation blocks",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "nyteshade",
   "license": "MIT",
   "repository": {

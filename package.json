@@ -1,0 +1,60 @@
+{
+  "name": "@nejs/doc-block-helper",
+  "displayName": "Doc Block Helper",
+  "description": "Smart formatting for documentation blocks",
+  "version": "0.0.1",
+  "publisher": "yourpublisher",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:swift",
+    "onLanguage:objective-c",
+    "onLanguage:c",
+    "onLanguage:cpp",
+    "onLanguage:java",
+    "onLanguage:python"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "docBlockHelper.handleEnter",
+        "title": "Handle Enter in Doc Blocks"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "docBlockHelper.handleEnter",
+        "key": "enter",
+        "when": "editorTextFocus && !editorReadonly"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Doc Block Helper",
+      "properties": {
+        "docBlockHelper.useEnhancedDetection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use enhanced token-based detection for documentation blocks"
+        },
+        "docBlockHelper.insertIntelligentTemplates": {
+          "type": "boolean",
+          "default": true,
+          "description": "Insert smart templates based on what's being documented"
+        },
+        "docBlockHelper.emptyLinesBeforeClosing": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of empty lines before automatically closing a doc block"
+        }
+      }
+    }
+  }
+}

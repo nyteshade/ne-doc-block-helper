@@ -1,9 +1,13 @@
 {
-  "name": "@nejs/doc-block-helper",
+  "name": "docBlockHelper",
   "displayName": "Doc Block Helper",
   "description": "Smart formatting for documentation blocks",
-  "version": "0.0.1",
-  "publisher": "yourpublisher",
+  "version": "1.0.0",
+  "publisher": "nyteshade",
+  "license": "MIT",
+  "repository": {
+    "url": "git@github.com:nyteshade/ne-doc-block-helper.git"
+  },
   "engines": {
     "vscode": "^1.60.0"
   },
